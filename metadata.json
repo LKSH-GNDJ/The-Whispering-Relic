@@ -1,0 +1,5 @@
+{
+  "name": "The Whispering Relic",
+  "description": "A dynamic text-based adventure game where the story and visuals are generated in real-time by AI. Every choice carves a unique path through a mysterious world, brought to life by Gemini's narrative and Imagen's visuals.",
+  "requestFramePermissions": []
+}
