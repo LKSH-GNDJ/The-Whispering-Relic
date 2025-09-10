@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { LoreEntry } from '../types';
 
 interface LoreBookProps {
-  lore: LoreEntry[];
+  lore: readonly LoreEntry[];
   isVisible: boolean;
   onClose: () => void;
 }
 
-export const LoreBook: React.FC<LoreBookProps> = ({ lore, isVisible, onClose }) => {
-  const sortedLore = [...lore].sort((a, b) => a.title.localeCompare(b.title));
+export const LoreBook: React.FC<LoreBookProps> = React.memo(({ lore, isVisible, onClose }) => {
+  const sortedLore = useMemo(() => 
+    [...lore].sort((a, b) => a.title.localeCompare(b.title)),
+    [lore]
+  );
 
   return (
     <div
@@ -45,4 +48,4 @@ export const LoreBook: React.FC<LoreBookProps> = ({ lore, isVisible, onClose }) 
       </div>
     </div>
   );
-};
+});

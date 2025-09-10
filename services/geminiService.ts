@@ -26,7 +26,7 @@ const loreSchema = {
         },
         required: ["title", "description"]
     }
-};
+} as const;
 
 const sceneSchema = {
   type: Type.OBJECT,
@@ -53,11 +53,12 @@ const sceneSchema = {
     lore: loreSchema
   },
   required: ["sceneDescription", "imagePrompt", "choices", "summaryForNextPrompt", "lore"]
-};
+} as const;
 
-interface SetupData {
+export interface SetupData {
     genre: string;
     tone: string;
+    artStyle: string;
     character: string;
     openingPrompt: string;
 }
@@ -81,18 +82,23 @@ Generate the opening scene for this adventure. The tone should match the player'
       responseSchema: sceneSchema,
     },
   });
-
-  const jsonResponse = JSON.parse(response.text);
-  return jsonResponse as ScenePayload;
+  
+  try {
+    const jsonResponse = JSON.parse(response.text);
+    return jsonResponse as ScenePayload;
+  } catch (e) {
+    console.error("Failed to parse JSON response from AI:", response.text, e);
+    throw new Error("The storyteller seems to be confused. The response was not in the expected format.");
+  }
 }
 
-interface NextSceneSetup {
+export interface NextSceneSetup {
     genre: string;
     tone: string;
     character: string;
 }
 
-export async function getNextScene(storyHistory: string[], playerAction: string, setup: NextSceneSetup, existingLore: LoreEntry[]): Promise<ScenePayload> {
+export async function getNextScene(storyHistory: readonly string[], playerAction: string, setup: NextSceneSetup, existingLore: readonly LoreEntry[]): Promise<ScenePayload> {
   const { genre, tone, character } = setup;
   const history = storyHistory.join(' ');
   const loreTitles = existingLore.map(l => l.title).join(', ') || 'None yet.';
@@ -116,9 +122,14 @@ Based on this, generate the next part of the story. The tone should remain consi
       responseSchema: sceneSchema,
     },
   });
-
-  const jsonResponse = JSON.parse(response.text);
-  return jsonResponse as ScenePayload;
+  
+  try {
+    const jsonResponse = JSON.parse(response.text);
+    return jsonResponse as ScenePayload;
+  } catch (e) {
+    console.error("Failed to parse JSON response from AI:", response.text, e);
+    throw new Error("The storyteller seems to be confused. The response was not in the expected format.");
+  }
 }
 
 export async function generateImage(prompt: string, artStyle: string): Promise<string> {

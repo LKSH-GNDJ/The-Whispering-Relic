@@ -2,12 +2,12 @@ import React from 'react';
 import type { HistoryEntry } from '../types';
 
 interface AdventureLogProps {
-  history: HistoryEntry[];
+  history: readonly HistoryEntry[];
   isVisible: boolean;
   onClose: () => void;
 }
 
-export const AdventureLog: React.FC<AdventureLogProps> = ({ history, isVisible, onClose }) => {
+export const AdventureLog: React.FC<AdventureLogProps> = React.memo(({ history, isVisible, onClose }) => {
   return (
     <div
       className={`fixed top-0 left-0 h-full bg-white/80 backdrop-blur-lg z-30 transition-transform duration-500 ease-in-out border-r border-slate-200 ${
@@ -43,4 +43,4 @@ export const AdventureLog: React.FC<AdventureLogProps> = ({ history, isVisible, 
       </div>
     </div>
   );
-};
+});

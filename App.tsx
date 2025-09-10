@@ -1,38 +1,107 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import type { GameState, HistoryEntry, LoreEntry } from './types';
+import React, { useReducer, useCallback, useEffect, useState } from 'react';
+import type { GameState, GameAction, HistoryEntry } from './types';
 import { getInitialScene, getNextScene, generateImage } from './services/geminiService';
+import type { SetupData } from './services/geminiService';
 import { SetupScreen } from './components/SetupScreen';
 import { GameScreen } from './components/GameScreen';
 import { AdventureLog } from './components/StartScreen';
 import { LoreBook } from './components/LoreBook';
 
-interface SetupData {
-  genre: string;
-  tone: string;
-  artStyle: string;
-  character: string;
-  openingPrompt: string;
-}
-
 const SAVE_KEY = 'whisperingRelicSave';
 
+const initialState: GameState = {
+  gamePhase: 'setup',
+  storySummaries: [],
+  history: [],
+  loreBook: [],
+  currentScene: '',
+  currentSummary: '',
+  imageUrl: null,
+  choices: [],
+  isLoading: false,
+  error: null,
+  genre: '',
+  tone: '',
+  artStyle: '',
+  character: '',
+};
+
+function gameReducer(state: GameState, action: GameAction): GameState {
+  switch (action.type) {
+    case 'LOAD_GAME_STATE':
+      return action.payload;
+    case 'CLEAR_SAVE':
+      return {
+        ...initialState,
+        gamePhase: 'setup'
+      };
+    case 'START_GAME_INIT':
+      return {
+        ...initialState,
+        isLoading: true,
+        gamePhase: 'playing',
+        genre: action.payload.genre,
+        tone: action.payload.tone,
+        artStyle: action.payload.artStyle,
+        character: action.payload.character,
+      };
+    case 'START_GAME_SUCCESS':
+      return {
+        ...state,
+        isLoading: false,
+        storySummaries: [action.payload.scene.summaryForNextPrompt],
+        currentScene: action.payload.scene.sceneDescription,
+        currentSummary: action.payload.scene.summaryForNextPrompt,
+        imageUrl: action.payload.imageUrl,
+        choices: action.payload.scene.choices,
+        loreBook: action.payload.scene.lore || [],
+      };
+    case 'START_GAME_ERROR':
+      return {
+        ...initialState,
+        error: action.payload,
+      };
+    case 'TAKE_TURN_INIT':
+      return {
+        ...state,
+        isLoading: true,
+        error: null,
+        choices: [],
+      };
+    case 'TAKE_TURN_SUCCESS':
+      const currentHistoryEntry: HistoryEntry = {
+        sceneDescription: state.currentScene,
+        imageUrl: state.imageUrl!,
+      };
+      const newLore = action.payload.scene.lore || [];
+      const existingLoreTitles = new Set(state.loreBook.map(l => l.title.toLowerCase()));
+      const uniqueNewLore = newLore.filter(l => !existingLoreTitles.has(l.title.toLowerCase()));
+
+      return {
+        ...state,
+        isLoading: false,
+        history: [...state.history, currentHistoryEntry],
+        storySummaries: [...state.storySummaries, action.payload.scene.summaryForNextPrompt],
+        loreBook: [...state.loreBook, ...uniqueNewLore],
+        currentScene: action.payload.scene.sceneDescription,
+        currentSummary: action.payload.scene.summaryForNextPrompt,
+        imageUrl: action.payload.imageUrl,
+        choices: action.payload.scene.choices,
+      };
+    case 'TAKE_TURN_ERROR':
+      return {
+        ...state,
+        isLoading: false,
+        error: action.payload.error,
+        choices: action.payload.previousChoices,
+      };
+    default:
+      return state;
+  }
+}
+
 const App: React.FC = () => {
-  const [gameState, setGameState] = useState<GameState>({
-    gamePhase: 'setup',
-    storySummaries: [],
-    history: [],
-    loreBook: [],
-    currentScene: '',
-    currentSummary: '',
-    imageUrl: null,
-    choices: [],
-    isLoading: false,
-    error: null,
-    genre: '',
-    tone: '',
-    artStyle: '',
-    character: '',
-  });
+  const [gameState, dispatch] = useReducer(gameReducer, initialState);
   const [isLogVisible, setIsLogVisible] = useState(false);
   const [isLoreBookVisible, setIsLoreBookVisible] = useState(false);
   const [saveExists, setSaveExists] = useState(false);
@@ -40,8 +109,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     try {
-      const savedGame = localStorage.getItem(SAVE_KEY);
-      if (savedGame) {
+      if (localStorage.getItem(SAVE_KEY)) {
         setSaveExists(true);
       }
     } catch (error) {
@@ -58,7 +126,7 @@ const App: React.FC = () => {
       setTimeout(() => setJustSaved(false), 2000);
     } catch (error) {
       console.error("Failed to save game:", error);
-      setGameState(prev => ({...prev, error: "Could not save the game."}));
+      // This error state should be managed in the reducer if it needs to be displayed
     }
   }, [gameState]);
 
@@ -66,106 +134,62 @@ const App: React.FC = () => {
     try {
       const savedGame = localStorage.getItem(SAVE_KEY);
       if (savedGame) {
-        const loadedState = JSON.parse(savedGame);
-        setGameState(loadedState);
+        dispatch({ type: 'LOAD_GAME_STATE', payload: JSON.parse(savedGame) });
       }
     } catch (error) {
       console.error("Failed to load game:", error);
-      setGameState(prev => ({...prev, error: "Failed to load save data. It might be corrupted.", gamePhase: 'setup'}));
       localStorage.removeItem(SAVE_KEY);
       setSaveExists(false);
+      dispatch({ type: 'START_GAME_ERROR', payload: "Failed to load save data. It might be corrupted." });
     }
   }, []);
 
   const handleStartGame = useCallback(async (setupData: SetupData) => {
     localStorage.removeItem(SAVE_KEY);
     setSaveExists(false);
-
-    setGameState(prev => ({
-      ...prev,
-      isLoading: true,
-      error: null,
-      gamePhase: 'playing',
-      genre: setupData.genre,
-      tone: setupData.tone,
-      artStyle: setupData.artStyle,
-      character: setupData.character,
-      history: [],
-      storySummaries: [],
-      loreBook: [],
-    }));
+    dispatch({ type: 'START_GAME_INIT', payload: setupData });
 
     try {
       const scenePayload = await getInitialScene(setupData);
       const imageBytes = await generateImage(scenePayload.imagePrompt, setupData.artStyle);
-      const imageUrl = `data:image/jpeg;base64,${imageBytes}`;
-
-      setGameState(prev => ({
-        ...prev,
-        storySummaries: [scenePayload.summaryForNextPrompt],
-        currentScene: scenePayload.sceneDescription,
-        currentSummary: scenePayload.summaryForNextPrompt,
-        imageUrl: imageUrl,
-        choices: scenePayload.choices,
-        loreBook: scenePayload.lore || [],
-        isLoading: false,
-      }));
+      dispatch({
+        type: 'START_GAME_SUCCESS',
+        payload: { scene: scenePayload, imageUrl: `data:image/jpeg;base64,${imageBytes}` }
+      });
     } catch (err) {
       console.error(err);
-      setGameState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: 'Failed to start the adventure. Please try again.',
-        gamePhase: 'setup'
-      }));
+      dispatch({ type: 'START_GAME_ERROR', payload: (err as Error).message || 'Failed to start. Please try again.' });
     }
   }, []);
 
   const handlePlayerAction = useCallback(async (action: string) => {
-    const currentHistoryEntry: HistoryEntry = {
-      sceneDescription: gameState.currentScene,
-      imageUrl: gameState.imageUrl!,
-    };
-    setGameState(prev => ({ ...prev, isLoading: true, error: null, choices: [] }));
+    const { storySummaries, genre, tone, character, artStyle, loreBook, choices } = gameState;
+    dispatch({ type: 'TAKE_TURN_INIT' });
 
     try {
-      const setup = {
-        genre: gameState.genre,
-        tone: gameState.tone,
-        character: gameState.character,
-      };
-      const scenePayload = await getNextScene(gameState.storySummaries, action, setup, gameState.loreBook);
-      const imageBytes = await generateImage(scenePayload.imagePrompt, gameState.artStyle);
-      const newImageUrl = `data:image/jpeg;base64,${imageBytes}`;
-
-      const newLore = scenePayload.lore || [];
-      const existingLoreTitles = new Set(gameState.loreBook.map(l => l.title.toLowerCase()));
-      const uniqueNewLore = newLore.filter(l => !existingLoreTitles.has(l.title.toLowerCase()));
-
-      setGameState(prev => ({
-        ...prev,
-        history: [...prev.history, currentHistoryEntry],
-        storySummaries: [...prev.storySummaries, scenePayload.summaryForNextPrompt],
-        loreBook: [...prev.loreBook, ...uniqueNewLore],
-        currentScene: scenePayload.sceneDescription,
-        currentSummary: scenePayload.summaryForNextPrompt,
-        imageUrl: newImageUrl,
-        choices: scenePayload.choices,
-        isLoading: false,
-      }));
-    } catch (err)
- {
+      const scenePayload = await getNextScene(
+        storySummaries,
+        action,
+        { genre, tone, character },
+        loreBook
+      );
+      const imageBytes = await generateImage(scenePayload.imagePrompt, artStyle);
+      dispatch({
+        type: 'TAKE_TURN_SUCCESS',
+        payload: { scene: scenePayload, imageUrl: `data:image/jpeg;base64,${imageBytes}` }
+      });
+    } catch (err) {
       console.error(err);
-      const previousChoices = gameState.choices.length > 0 ? gameState.choices : Array(3).fill('...');
-      setGameState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: 'The story could not continue. Please try again.',
-        choices: previousChoices,
-        history: prev.history.slice(0, -1),
-      }));
+      dispatch({
+        type: 'TAKE_TURN_ERROR',
+        payload: {
+          error: (err as Error).message || 'The story could not continue. Please try again.',
+          previousChoices: choices.length > 0 ? choices : Array(3).fill('...'),
+        }
+      });
     }
-  }, [gameState.storySummaries, gameState.genre, gameState.tone, gameState.character, gameState.artStyle, gameState.choices, gameState.currentScene, gameState.imageUrl, gameState.loreBook]);
+  }, [gameState]);
+
 
   return (
     <>
@@ -178,6 +202,9 @@ const App: React.FC = () => {
               The Whispering Relic
             </h1>
             <p className="text-slate-500 text-lg">An AI-Powered Adventure</p>
+            <p className="text-sm italic text-slate-600 mt-2 max-w-2xl mx-auto">
+              This adventure is dynamically generated by Google's Gemini and Imagen models. Every journey is unique.
+            </p>
           </header>
 
           {gameState.error && (
@@ -188,25 +215,13 @@ const App: React.FC = () => {
 
           {gameState.gamePhase === 'playing' && (
             <div className="fixed top-4 left-4 z-20 flex gap-2">
-               <button
-                onClick={() => setIsLogVisible(true)}
-                className="bg-white/70 backdrop-blur-sm p-2 rounded-full text-slate-600 hover:text-indigo-600 transition-colors shadow-md"
-                aria-label="Show Adventure Log"
-              >
+               <button onClick={() => setIsLogVisible(true)} className="bg-white/70 backdrop-blur-sm p-2 rounded-full text-slate-600 hover:text-indigo-600 transition-colors shadow-md" aria-label="Show Adventure Log">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
               </button>
-               <button
-                onClick={() => setIsLoreBookVisible(true)}
-                className="bg-white/70 backdrop-blur-sm p-2 rounded-full text-slate-600 hover:text-indigo-600 transition-colors shadow-md"
-                aria-label="Show Lore Book"
-              >
+               <button onClick={() => setIsLoreBookVisible(true)} className="bg-white/70 backdrop-blur-sm p-2 rounded-full text-slate-600 hover:text-indigo-600 transition-colors shadow-md" aria-label="Show Lore Book">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" /></svg>
               </button>
-              <button
-                onClick={saveGame}
-                className="bg-white/70 backdrop-blur-sm p-2 rounded-full text-slate-600 hover:text-indigo-600 transition-colors shadow-md"
-                aria-label="Save Game"
-              >
+              <button onClick={saveGame} className="bg-white/70 backdrop-blur-sm p-2 rounded-full text-slate-600 hover:text-indigo-600 transition-colors shadow-md" aria-label="Save Game">
                 {justSaved ? (
                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                 ) : (
@@ -219,12 +234,15 @@ const App: React.FC = () => {
           {gameState.gamePhase === 'setup' ? (
             <SetupScreen onStart={handleStartGame} isLoading={gameState.isLoading} saveExists={saveExists} onLoadGame={loadGame} />
           ) : (
-            <GameScreen gameState={gameState} onPlayerAction={handlePlayerAction} />
+            <GameScreen
+              imageUrl={gameState.imageUrl}
+              currentScene={gameState.currentScene}
+              choices={gameState.choices}
+              isLoading={gameState.isLoading}
+              onPlayerAction={handlePlayerAction}
+            />
           )}
         </main>
-        <footer className="w-full max-w-4xl mx-auto text-center mt-8 text-xs text-slate-400">
-          <p>This adventure is dynamically generated by Google's Gemini and Imagen models. Every journey is unique.</p>
-        </footer>
       </div>
     </>
   );

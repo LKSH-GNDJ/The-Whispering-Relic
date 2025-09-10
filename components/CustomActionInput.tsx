@@ -5,7 +5,7 @@ interface CustomActionInputProps {
   disabled: boolean;
 }
 
-export const CustomActionInput: React.FC<CustomActionInputProps> = ({ onAction, disabled }) => {
+export const CustomActionInput: React.FC<CustomActionInputProps> = React.memo(({ onAction, disabled }) => {
   const [text, setText] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -47,4 +47,4 @@ export const CustomActionInput: React.FC<CustomActionInputProps> = ({ onAction, 
       </div>
     </form>
   );
-};
+});

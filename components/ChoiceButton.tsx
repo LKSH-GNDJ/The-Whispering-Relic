@@ -6,7 +6,7 @@ interface ChoiceButtonProps {
   disabled: boolean;
 }
 
-export const ChoiceButton: React.FC<ChoiceButtonProps> = ({ text, onClick, disabled }) => {
+export const ChoiceButton: React.FC<ChoiceButtonProps> = React.memo(({ text, onClick, disabled }) => {
   return (
     <button
       onClick={onClick}
@@ -21,4 +21,4 @@ export const ChoiceButton: React.FC<ChoiceButtonProps> = ({ text, onClick, disab
       {disabled && !text.includes('...') ? <span className="animate-pulse">{text}</span> : text}
     </button>
   );
-};
+});

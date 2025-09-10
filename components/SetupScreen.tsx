@@ -1,13 +1,6 @@
 import React, { useState } from 'react';
 import { LoadingIndicator } from './LoadingIndicator';
-
-interface SetupData {
-  genre: string;
-  tone: string;
-  artStyle: string;
-  character: string;
-  openingPrompt: string;
-}
+import type { SetupData } from '../services/geminiService';
 
 interface SetupScreenProps {
   onStart: (setupData: SetupData) => void;
@@ -16,9 +9,9 @@ interface SetupScreenProps {
   onLoadGame: () => void;
 }
 
-const GENRES = ["High Fantasy", "Cyberpunk Noir", "Cosmic Horror", "Space Opera"];
-const TONES = ["Serious", "Humorous", "Gritty"];
-const ART_STYLES = ["Photorealistic", "Oil Painting", "Anime", "Charcoal Sketch"];
+const GENRES = ["High Fantasy", "Cyberpunk Noir", "Cosmic Horror", "Space Opera"] as const;
+const TONES = ["Serious", "Humorous", "Gritty"] as const;
+const ART_STYLES = ["Photorealistic", "Oil Painting", "Anime", "Charcoal Sketch"] as const;
 
 const Label: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <label className="block text-sm font-medium text-slate-600 mb-2">{children}</label>
@@ -26,10 +19,10 @@ const Label: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 interface CustomSelectProps {
   label: string;
-  name: keyof SetupData;
+  name: keyof Omit<SetupData, 'character' | 'openingPrompt'>;
   options: readonly string[];
   value: string;
-  onChange: (name: keyof SetupData, value: string) => void;
+  onChange: (name: keyof Omit<SetupData, 'character' | 'openingPrompt'>, value: string) => void;
 }
 
 const CustomSelect: React.FC<CustomSelectProps> = ({ label, name, options, value, onChange }) => (
@@ -62,7 +55,7 @@ const Textarea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement>> = (p
     <textarea {...props} className="w-full bg-slate-100 border border-slate-300 rounded-md p-3 text-slate-900 focus:ring-indigo-500 focus:border-indigo-500" />
 );
 
-export const SetupScreen: React.FC<SetupScreenProps> = ({ onStart, isLoading, saveExists, onLoadGame }) => {
+export const SetupScreen: React.FC<SetupScreenProps> = React.memo(({ onStart, isLoading, saveExists, onLoadGame }) => {
   const [setupData, setSetupData] = useState<SetupData>({
     genre: GENRES[0],
     tone: TONES[0],
@@ -71,7 +64,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStart, isLoading, sa
     openingPrompt: 'I wake up in a tavern with no memory of how I got here.',
   });
 
-  const handleCustomSelectChange = (name: keyof SetupData, value: string) => {
+  const handleCustomSelectChange = (name: keyof Omit<SetupData, 'character' | 'openingPrompt'>, value: string) => {
     setSetupData(prev => ({...prev, [name]: value}));
   };
 
@@ -147,4 +140,4 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStart, isLoading, sa
       </form>
     </div>
   );
-};
+});
