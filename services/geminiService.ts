@@ -1,6 +1,5 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import type { ScenePayload } from "../types";
+import type { ScenePayload, LoreEntry } from "../types";
 
 const API_KEY = process.env.API_KEY;
 
@@ -9,6 +8,25 @@ if (!API_KEY) {
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
+
+const loreSchema = {
+    type: Type.ARRAY,
+    description: "A list of key entities (characters, places, items) introduced or significantly updated in this scene. Create entries only for new, important subjects.",
+    items: {
+        type: Type.OBJECT,
+        properties: {
+            title: {
+                type: Type.STRING,
+                description: "The name of the character, place, or item."
+            },
+            description: {
+                type: Type.STRING,
+                description: "A brief, one-to-two sentence description for a lore book entry."
+            }
+        },
+        required: ["title", "description"]
+    }
+};
 
 const sceneSchema = {
   type: Type.OBJECT,
@@ -31,9 +49,10 @@ const sceneSchema = {
     summaryForNextPrompt: {
         type: Type.STRING,
         description: "A very brief, one-sentence summary of the current situation to be used as context for the next turn. Focus on key characters, locations, and immediate conflicts."
-    }
+    },
+    lore: loreSchema
   },
-  required: ["sceneDescription", "imagePrompt", "choices", "summaryForNextPrompt"]
+  required: ["sceneDescription", "imagePrompt", "choices", "summaryForNextPrompt", "lore"]
 };
 
 interface SetupData {
@@ -52,7 +71,7 @@ export async function getInitialScene(setup: SetupData): Promise<ScenePayload> {
 
 The story should begin with this premise: "${openingPrompt || 'A surprising and mysterious event.'}"
 
-Generate the opening scene for this adventure. The tone should match the player's selection. Provide a detailed description of the scene, a visually rich prompt for an AI image generator to illustrate it, three distinct, compelling actions for the player, and a brief summary of the scene for the next turn's context.`;
+Generate the opening scene for this adventure. The tone should match the player's selection. Provide a detailed description of the scene, a visually rich prompt for an AI image generator to illustrate it, three distinct, compelling actions for the player, a brief summary of the scene for the next turn's context, and a list of any important characters, places, or items introduced that should be added to a lore book.`;
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
@@ -73,19 +92,21 @@ interface NextSceneSetup {
     character: string;
 }
 
-export async function getNextScene(storyHistory: string[], playerAction: string, setup: NextSceneSetup): Promise<ScenePayload> {
+export async function getNextScene(storyHistory: string[], playerAction: string, setup: NextSceneSetup, existingLore: LoreEntry[]): Promise<ScenePayload> {
   const { genre, tone, character } = setup;
   const history = storyHistory.join(' ');
+  const loreTitles = existingLore.map(l => l.title).join(', ') || 'None yet.';
   const prompt = `You are a master storyteller continuing a text adventure.
 - Genre: ${genre}
 - Tone: ${tone}
 - Player Character: "${character}"
+- Existing Lore Book Entries: ${loreTitles}
 
 The story so far (summarized): \`\`\`${history}\`\`\`
 
 The player has just taken the action: "${playerAction}"
 
-Based on this, generate the next part of the story. The tone should remain consistent. Provide a new, detailed scene description, a new visually rich prompt for an AI image generator, three new, distinct, and compelling actions for the player, and a brief summary of the new scene for the next turn's context. Ensure the story progresses and the actions are meaningful.`;
+Based on this, generate the next part of the story. The tone should remain consistent. Provide a new, detailed scene description, a new visually rich prompt for an AI image generator, three new, distinct, and compelling actions for the player, and a brief summary of the new scene for the next turn's context. Finally, provide a list of any NEW important characters, places, or items introduced in this scene to be added to the lore book. DO NOT repeat entries that are already in the lore book.`;
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",

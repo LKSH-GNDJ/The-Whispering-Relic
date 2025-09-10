@@ -12,6 +12,8 @@ interface SetupData {
 interface SetupScreenProps {
   onStart: (setupData: SetupData) => void;
   isLoading: boolean;
+  saveExists: boolean;
+  onLoadGame: () => void;
 }
 
 const GENRES = ["High Fantasy", "Cyberpunk Noir", "Cosmic Horror", "Space Opera"];
@@ -60,7 +62,7 @@ const Textarea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement>> = (p
     <textarea {...props} className="w-full bg-slate-100 border border-slate-300 rounded-md p-3 text-slate-900 focus:ring-indigo-500 focus:border-indigo-500" />
 );
 
-export const SetupScreen: React.FC<SetupScreenProps> = ({ onStart, isLoading }) => {
+export const SetupScreen: React.FC<SetupScreenProps> = ({ onStart, isLoading, saveExists, onLoadGame }) => {
   const [setupData, setSetupData] = useState<SetupData>({
     genre: GENRES[0],
     tone: TONES[0],
@@ -95,6 +97,20 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStart, isLoading }) 
       <p className="text-slate-600 mb-8 max-w-xl mx-auto">
         Define the foundation of your adventure. The AI will weave a unique story based on your design.
       </p>
+
+      {saveExists && (
+        <div className="mb-8 border-b border-slate-200 pb-8">
+            <button
+                type="button"
+                onClick={onLoadGame}
+                className="w-full md:w-auto inline-flex items-center justify-center bg-slate-700 hover:bg-slate-800 text-white font-bold py-3 px-8 rounded-lg text-lg transition-all duration-300 ease-in-out shadow-lg"
+              >
+                Continue Adventure
+              </button>
+              <p className="text-sm text-slate-500 mt-4">--- OR ---</p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6 text-left">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <CustomSelect label="Genre" name="genre" options={GENRES} value={setupData.genre} onChange={handleCustomSelectChange} />
@@ -124,7 +140,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({ onStart, isLoading }) 
                 <span className="ml-2">Crafting your world...</span>
               </>
             ) : (
-              'Begin Adventure'
+              'Begin New Adventure'
             )}
           </button>
         </div>

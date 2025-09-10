@@ -3,10 +3,16 @@ export interface HistoryEntry {
   imageUrl: string;
 }
 
+export interface LoreEntry {
+  title: string;
+  description: string;
+}
+
 export interface GameState {
   gamePhase: 'setup' | 'playing';
   storySummaries: string[];
   history: HistoryEntry[];
+  loreBook: LoreEntry[];
   currentScene: string;
   currentSummary: string;
   imageUrl: string | null;
@@ -25,4 +31,5 @@ export interface ScenePayload {
   imagePrompt: string;
   choices: string[];
   summaryForNextPrompt: string;
+  lore: LoreEntry[];
 }
