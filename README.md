@@ -1,5 +1,5 @@
 
-#The Whispering Relic
+# The Whispering Relic
 
 A dynamic text-based adventure story generator. This version introduces the core engine powered by Google's Gemini for narrative creation and nano banana for its unique illustrations. 📖 This version serves as a foundational proof-of-concept and a first look into the world of procedurally generated adventures.
 
