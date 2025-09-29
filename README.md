@@ -5,7 +5,7 @@ A dynamic text-based adventure story generator. This version introduces the core
 
 # currently it's a pre-release MK_0, with most of the features 
 
-# Run and deploy your AI Studio app
+# Run and deploy this
 
 This contains everything you need to run your app locally.
 
