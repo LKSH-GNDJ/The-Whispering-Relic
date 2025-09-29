@@ -3,7 +3,7 @@
 
 A dynamic text-based adventure story generator. This version introduces the core engine powered by Google's Gemini for narrative creation and nano banana for its unique illustrations. 📖 This version serves as a foundational proof-of-concept and a first look into the world of procedurally generated adventures.
 
-currently it's a pre-release MK_0, with most of the features 
+currently it's a pre-release MK_0, with most of the features. 
 
 # Run and deploy this
 
